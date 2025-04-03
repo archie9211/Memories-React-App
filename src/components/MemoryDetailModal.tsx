@@ -39,7 +39,7 @@ const MemoryDetailModal: React.FC<MemoryDetailModalProps> = ({
                               <img
                                     src={assetSrc}
                                     alt={memory.caption || "Memory image"}
-                                    className="max-w-full max-h-[70vh] object-contain rounded my-4 mx-auto block bg-gray-200"
+                                    className="max-w-full max-h-[70vh] object-contain rounded my-4 mx-auto block bg-cyan"
                                     loading="lazy"
                               />
                         ) : (
@@ -51,7 +51,7 @@ const MemoryDetailModal: React.FC<MemoryDetailModalProps> = ({
                         return assetSrc ? (
                               <video
                                     src={assetSrc}
-                                    className="max-w-full max-h-[70vh] rounded my-4 mx-auto block bg-black"
+                                    className="max-w-full max-h-[70vh] rounded my-4 mx-auto block bg-cyan"
                                     controls
                                     autoPlay={false}
                                     preload="metadata"
@@ -89,7 +89,7 @@ const MemoryDetailModal: React.FC<MemoryDetailModalProps> = ({
             >
                   {/* Modal Content Container */}
                   <div
-                        className="bg-white rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 relative"
+                        className="bg-cyan rounded-lg shadow-xl w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 relative"
                         onClick={(e) => e.stopPropagation()} // Prevent closing when clicking inside
                   >
                         {/* Close ('X') Button */}

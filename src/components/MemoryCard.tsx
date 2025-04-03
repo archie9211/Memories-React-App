@@ -43,7 +43,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                         return assetSrc ? (
                               <video
                                     src={assetSrc}
-                                    className="w-full max-h-[400px] object-contain rounded my-2 bg-black"
+                                    className="w-full max-h-[400px] object-contain rounded my-2 bg-cyan"
                                     controls
                                     muted
                                     loop
