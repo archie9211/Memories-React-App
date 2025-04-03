@@ -1,13 +1,14 @@
 // src/components/Modal.tsx
-import React, { useEffect } from "react";
+import React from "react";
+import { useScrollLock } from "../hooks/useScrollLock"; // Import the hook
 
 interface ModalProps {
-      isOpen: boolean; // Controls whether the modal is visible
-      onClose: () => void; // Function to call when closing the modal (e.g., clicking backdrop or close button)
-      children: React.ReactNode; // The content to render inside the modal
-      title?: string; // Optional title displayed at the top of the modal
-      useBlur?: boolean; // Optional flag: if true, uses a blurred backdrop, otherwise a dark overlay
-      maxWidth?: string; // Optional: Tailwind max-width class (e.g., 'max-w-md', 'max-w-xl', 'max-w-3xl'). Defaults below.
+      isOpen: boolean;
+      onClose: () => void;
+      children: React.ReactNode;
+      title?: string;
+      useBlur?: boolean;
+      maxWidth?: string;
 }
 
 const Modal: React.FC<ModalProps> = ({
@@ -15,96 +16,100 @@ const Modal: React.FC<ModalProps> = ({
       onClose,
       children,
       title,
-      useBlur = true, // Default to dark overlay if not specified
-      maxWidth = "max-w-2xl", // Default max-width suitable for forms
+      useBlur = true,
+      maxWidth = "max-w-2xl",
 }) => {
-      useEffect(() => {
-            if (isOpen) {
-                  document.body.style.overflow = "hidden";
-            } else {
-                  document.body.style.overflow = "unset";
-            }
+      // Use the scroll lock hook when the modal is open
+      // Note: This replaces the useEffect for body overflow style
+      // eslint-disable-next-line react-hooks/rules-of-hooks
+      if (isOpen) useScrollLock();
 
-            return () => {
-                  document.body.style.overflow = "unset";
-            };
-      }, [isOpen]);
-
-      // Don't render anything if the modal is not open
       if (!isOpen) return null;
 
-      // Determine backdrop classes based on the useBlur prop
       const backdropClasses = useBlur
-            ? "fixed inset-0 bg-gray-500 bg-opacity-25 backdrop-blur-sm flex justify-center items-center z-50 p-4 transition-opacity duration-300 ease-in-out"
+            ? "fixed inset-0 bg-gray-800 bg-opacity-30 backdrop-blur-sm flex justify-center items-center z-50 p-4 transition-opacity duration-300 ease-in-out" // Slightly darker blur bg
             : "fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4 transition-opacity duration-300 ease-in-out";
 
       return (
             <div
                   className={backdropClasses}
-                  onClick={onClose} // Close the modal when the backdrop (overlay) is clicked
+                  onClick={onClose}
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby={title ? "modal-title" : undefined}
-                  aria-describedby={title ? undefined : "modal-description"} // Add if no title but content describes it
+                  aria-describedby={title ? undefined : "modal-description"}
             >
-                  <dialog
-                        open={isOpen}
-                        className={`bg-white rounded-lg shadow-xl w-full ${maxWidth} max-h-[90vh] overflow-y-auto p-6 relative transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modal-fade-in m-0`}
-                        onClick={(e) => e.stopPropagation()} // VERY IMPORTANT: Prevent clicks inside the modal content from closing the modal
+                  {/* Using <dialog> causes issues with positioning/styling in some cases, revert to div */}
+                  <div
+                        // open={isOpen} // Not needed for div
+                        className={`bg-white rounded-lg shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modal-fade-in m-0`}
+                        onClick={(e) => e.stopPropagation()}
+                        role="document" // More appropriate role for the content container
                         aria-labelledby={title ? "modal-title" : undefined}
                         aria-describedby={
                               title ? undefined : "modal-description"
                         }
                   >
-                        {/* Close ('X') Button */}
-                        <button
-                              onClick={onClose}
-                              className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl leading-none font-semibold outline-none focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1 rounded-full p-1 z-10" // Added focus ring and padding
-                              aria-label="Close modal"
-                        >
-                              ×
-                        </button>
-
-                        {/* Optional Title */}
+                        {/* Modal Header (optional) */}
                         {title && (
-                              <h2
-                                    id="modal-title"
-                                    className="text-xl font-semibold mb-4 text-gray-800 pr-8"
-                              >
-                                    {" "}
-                                    {/* Added padding-right for close button */}
-                                    {title}
-                              </h2>
+                              <div className="flex justify-between items-center p-4 border-b border-gray-200 flex-shrink-0">
+                                    {title ? (
+                                          <h2
+                                                id="modal-title"
+                                                className="text-lg font-semibold text-gray-800"
+                                          >
+                                                {title}
+                                          </h2>
+                                    ) : (
+                                          <div />
+                                    )}{" "}
+                                    {/* Placeholder to keep button right */}
+                                    <button
+                                          onClick={onClose}
+                                          className="p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-1"
+                                          aria-label="Close modal"
+                                    >
+                                          <svg
+                                                className="h-6 w-6"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                          >
+                                                <path
+                                                      strokeLinecap="round"
+                                                      strokeLinejoin="round"
+                                                      strokeWidth={2}
+                                                      d="M6 18L18 6M6 6l12 12"
+                                                />
+                                          </svg>
+                                    </button>
+                              </div>
                         )}
 
-                        {/* Render the children passed to the modal */}
-                        <div id={!title ? "modal-description" : undefined}>
+                        {/* Modal Body - Scrollable */}
+                        <div
+                              id={!title ? "modal-description" : undefined}
+                              className="p-6 overflow-y-auto flex-grow"
+                        >
                               {children}
                         </div>
-                  </dialog>
 
-                  {/* Add CSS for animation if desired */}
+                        {/* Optional Footer Area - Could be passed as a prop if needed */}
+                        {/* <div className="p-4 border-t border-gray-200 flex-shrink-0"> Footer Content </div> */}
+                  </div>{" "}
+                  {/* End Modal Content Container */}
+                  {/* Animation Styles (remain the same) */}
                   <style>{`
-                        @keyframes modal-fade-in {
-                              from {
-                                    opacity: 0;
-                                    transform: scale(0.95);
-                              }
-                              to {
-                                    opacity: 1;
-                                    transform: scale(1);
-                              }
-                        }
-                        .animate-modal-fade-in {
-                              animation: modal-fade-in 0.3s ease-out forwards;
-                        }
-                        dialog::backdrop {
-                              display: none;
-                        }
-                        dialog {
-                              pointer-events: auto;
-                        }
-                  `}</style>
+                @keyframes modal-fade-in {
+                    from { opacity: 0; transform: scale(0.95); }
+                    to { opacity: 1; transform: scale(1); }
+                }
+                .animate-modal-fade-in { animation: modal-fade-in 0.2s ease-out forwards; }
+                /* Ensure backdrop allows clicks through to the main div for closing */
+                /* div[role="dialog"] { pointer-events: none; } */
+                 /* Ensure modal content receives clicks */
+                /* div[role="document"] { pointer-events: auto; } */
+            `}</style>
             </div> // End Modal Backdrop
       );
 };

@@ -1,26 +1,37 @@
-CREATE TABLE IF NOT EXISTS memories ( 
-    id TEXT PRIMARY KEY, 
-    user_id TEXT NOT NULL, 
+
+DROP INDEX IF EXISTS idx_user_date;
+
+
+DROP TABLE IF EXISTS memories; 
+DROP TABLE IF EXISTS memory_assets;
+
+
+CREATE TABLE IF NOT EXISTS memories (
+    id TEXT PRIMARY KEY,
+    user_id TEXT NOT NULL,
     type TEXT NOT NULL CHECK(type IN ('quote', 'image', 'video', 'hybrid', 'gallery')), 
-    content TEXT, asset_key TEXT, 
-    caption TEXT, location TEXT, 
-    memory_date DATETIME NOT NULL, 
-    updated_at DATETIME, 
-    edited_by TEXT, 
-    tags TEXT DEFAULT '', 
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP 
-    ); 
-
-CREATE INDEX IF NOT EXISTS idx_user_date ON memories (user_id, memory_date DESC, id DESC);
-
-
-CREATE TABLE IF NOT EXISTS memory_gallery_assets (
-    memory_id TEXT NOT NULL,        -- Foreign key to the memories table
-    asset_key TEXT NOT NULL,        -- The key of the image/video in R2
-    display_order INTEGER DEFAULT 0, -- Optional: For ordering items in the gallery
-    PRIMARY KEY (memory_id, asset_key), -- Prevent duplicates for the same memory
-    FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE -- If memory is deleted, gallery links are removed
+    content TEXT, 
+    caption TEXT, 
+    location TEXT,
+    memory_date DATETIME NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME,
+    edited_by TEXT,
+    tags TEXT DEFAULT ''
 );
 
--- Index for efficiently fetching gallery assets for a memory
-CREATE INDEX IF NOT EXISTS idx_gallery_memory_id ON memory_gallery_assets (memory_id, display_order);
+
+CREATE TABLE IF NOT EXISTS memory_assets (
+    id TEXT PRIMARY KEY,          
+    memory_id TEXT NOT NULL,      
+    asset_key TEXT NOT NULL,      
+    thumbnail_key TEXT,           
+    asset_type TEXT NOT NULL CHECK(asset_type IN ('image', 'video')), 
+    sort_order INTEGER DEFAULT 0, 
+    FOREIGN KEY (memory_id) REFERENCES memories(id) ON DELETE CASCADE 
+);
+
+
+CREATE INDEX IF NOT EXISTS idx_memory_date ON memories (memory_date DESC, id DESC);
+
+CREATE INDEX IF NOT EXISTS idx_memory_assets_memory_id ON memory_assets (memory_id, sort_order);

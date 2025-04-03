@@ -1,24 +1,26 @@
+// src/pages/TimelinePage.tsx
 import React, { useState, useEffect, useCallback, useMemo } from "react";
 import { useInView } from "react-intersection-observer";
-import { Memory, fetchMemories, MemoryFilters } from "../services/api";
+import { Memory, fetchMemories, MemoryFilters } from "../services/api"; // Memory type updated
 import Timeline from "../components/Timeline";
 import AddMemoryForm from "../components/AddMemoryForm";
 import { MemoryCardSkeleton } from "../components/LoadingSpinner";
-import MemoryDetailModal from "../components/MemoryDetailModal"; // Specific component for detail view
+import MemoryDetailModal from "../components/MemoryDetailModal";
 import FilterControls from "../components/FilterControls";
-import Modal from "../components/Modal";
+import Modal from "../components/Modal"; // Generic modal for Add/Edit
+import { PlusIcon } from "@heroicons/react/20/solid"; // Use Heroicon
 
-const PAGE_LIMIT = 10; // Number of memories per page/load
+const PAGE_LIMIT = 10;
 
 const TimelinePage: React.FC = () => {
-      const [memories, setMemories] = useState<Memory[]>([]);
+      const [memories, setMemories] = useState<Memory[]>([]); // Uses updated Memory type
       const [isLoading, setIsLoading] = useState<boolean>(true);
       const [isLoadingMore, setIsLoadingMore] = useState<boolean>(false);
       const [error, setError] = useState<string | null>(null);
-      const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null); // For detail view modal
-      const [editingMemory, setEditingMemory] = useState<Memory | null>(null); // Data for edit form modal
+      const [selectedMemory, setSelectedMemory] = useState<Memory | null>(null);
+      const [editingMemory, setEditingMemory] = useState<Memory | null>(null);
       const [isAddEditModalOpen, setIsAddEditModalOpen] =
-            useState<boolean>(false); // Controls Add/Edit Modal visibility
+            useState<boolean>(false);
 
       const [filters, setFilters] = useState<MemoryFilters>({
             limit: PAGE_LIMIT,
@@ -29,10 +31,9 @@ const TimelinePage: React.FC = () => {
       } | null>(null);
       const [hasMore, setHasMore] = useState<boolean>(true);
 
-      const { ref: loadMoreRef, inView } = useInView({
-            threshold: 0,
-      });
+      const { ref: loadMoreRef, inView } = useInView({ threshold: 0.1 }); // Slightly higher threshold
 
+      // Sort memories (unchanged logic)
       const sortedMemories = useMemo(
             () =>
                   memories.sort(
@@ -43,9 +44,10 @@ const TimelinePage: React.FC = () => {
             [memories]
       );
 
-      // --- Fetching Logic ---
+      // Fetching Logic (unchanged logic, relies on updated fetchMemories)
       const loadMemories = useCallback(
             async (newFilters: MemoryFilters, reset = false) => {
+                  // ... implementation remains the same ...
                   if (reset) {
                         setIsLoading(true);
                         setMemories([]);
@@ -55,15 +57,20 @@ const TimelinePage: React.FC = () => {
                         setIsLoadingMore(true);
                   }
                   setError(null);
+                  console.log("Loading memories with filters:", newFilters); // Debugging
                   try {
                         const response = await fetchMemories(newFilters);
+                        console.log("API Response:", response); // Debugging
                         setMemories((prev) =>
                               reset
                                     ? response.memories
                                     : [...prev, ...response.memories]
                         );
                         setNextCursor(response.nextCursor);
-                        setHasMore(response.nextCursor !== null);
+                        setHasMore(
+                              response.nextCursor !== null &&
+                                    response.memories.length > 0
+                        ); // Ensure hasMore is true only if data received
                   } catch (err: any) {
                         setError(err.message || "Failed to load memories.");
                         setHasMore(false);
@@ -73,15 +80,14 @@ const TimelinePage: React.FC = () => {
                   }
             },
             []
-      ); // Removed dependencies as they are stable or handled internally
+      ); // No dependencies needed here
 
-      // Initial load
+      // Initial load (unchanged)
       useEffect(() => {
             loadMemories({ limit: PAGE_LIMIT }, true);
-            console.log("memories", memories);
-      }, [loadMemories]); // Depends only on the memoized loadMemories
+      }, [loadMemories]);
 
-      // Infinite scroll trigger
+      // Infinite scroll trigger (unchanged logic)
       useEffect(() => {
             if (
                   inView &&
@@ -90,6 +96,7 @@ const TimelinePage: React.FC = () => {
                   !isLoadingMore &&
                   nextCursor
             ) {
+                  console.log("Loading more...", nextCursor); // Debugging
                   loadMemories(
                         {
                               ...filters,
@@ -110,7 +117,7 @@ const TimelinePage: React.FC = () => {
             loadMemories,
       ]);
 
-      // Filter change handler
+      // Filter change handler (unchanged)
       const handleFilterChange = (
             newFilterValues: Record<string, string | undefined>
       ) => {
@@ -120,168 +127,165 @@ const TimelinePage: React.FC = () => {
                   )
             );
             const updatedFilters = { ...activeFilters, limit: PAGE_LIMIT };
+            console.log("Applying filters:", updatedFilters); // Debugging
             setFilters(updatedFilters);
-            loadMemories(updatedFilters, true); // Reload with new filters
+            loadMemories(updatedFilters, true);
       };
 
       // --- Modal and Form Handlers ---
       const handleMemorySaved = (savedMemory: Memory) => {
-            // Update local state (replace or prepend/sort)
             setMemories((prevMemories) => {
                   const index = prevMemories.findIndex(
                         (m) => m.id === savedMemory.id
                   );
                   let updatedMemories;
                   if (index > -1) {
+                        // Update existing
                         updatedMemories = [...prevMemories];
                         updatedMemories[index] = savedMemory;
                   } else {
+                        // Add new
                         updatedMemories = [savedMemory, ...prevMemories];
                   }
-                  // Ensure sort order is maintained
+                  // Re-sort after add/update
                   return updatedMemories.sort(
                         (a, b) =>
                               new Date(b.memory_date).getTime() -
                               new Date(a.memory_date).getTime()
                   );
             });
-            setIsAddEditModalOpen(false); // Close the Add/Edit modal
+            setIsAddEditModalOpen(false);
             setEditingMemory(null);
-            setSelectedMemory(null); // Ensure detail modal is closed
+            setSelectedMemory(null); // Close detail modal if it was open via edit request
       };
 
-      // Open Detail Modal
       const handleSelectMemory = (memory: Memory) => {
             setSelectedMemory(memory);
-            setIsAddEditModalOpen(false); // Close Add/Edit modal if open
+            setIsAddEditModalOpen(false);
       };
 
-      // Open Edit Modal
       const handleEditRequest = (memory: Memory) => {
-            setSelectedMemory(null); // Close detail modal
-            setEditingMemory(memory); // Set data for the form
-            setIsAddEditModalOpen(true); // Open the generic modal for editing
+            setSelectedMemory(null);
+            setEditingMemory(memory);
+            setIsAddEditModalOpen(true);
       };
 
-      // Close Detail Modal
       const handleCloseDetailModal = () => {
             setSelectedMemory(null);
       };
-
-      // Close Add/Edit Modal
       const handleCloseAddEditModal = () => {
             setIsAddEditModalOpen(false);
-            setEditingMemory(null); // Clear editing state
+            setEditingMemory(null);
       };
-
-      // Open Add Modal
       const handleAddNewClick = () => {
-            setEditingMemory(null); // Clear any editing state
-            setSelectedMemory(null); // Close detail modal if open
-            setIsAddEditModalOpen(true); // Open the generic modal for adding
+            setEditingMemory(null);
+            setSelectedMemory(null);
+            setIsAddEditModalOpen(true);
       };
 
       return (
             <>
-                  {" "}
-                  {/* Use Fragment */}
-                  {/* Button to trigger Add Form Modal */}
-                  <div className="text-center mb-6">
+                  {/* Add New Memory Button - Centered */}
+                  <div className="text-center mb-8">
                         <button
-                              onClick={handleAddNewClick} // Opens the Add/Edit modal in "add" mode
-                              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                              onClick={handleAddNewClick}
+                              className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out"
                         >
-                              <svg
-                                    className="-ml-1 mr-3 h-5 w-5"
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    viewBox="0 0 20 20"
-                                    fill="currentColor"
+                              <PlusIcon
+                                    className="-ml-1 mr-2 h-5 w-5"
                                     aria-hidden="true"
-                              >
-                                    <path
-                                          fillRule="evenodd"
-                                          d="M10 3a1 1 0 011 1v5h5a1 1 0 110 2h-5v5a1 1 0 11-2 0v-5H4a1 1 0 110-2h5V4a1 1 0 011-1z"
-                                          clipRule="evenodd"
-                                    />
-                              </svg>
+                              />
                               Add New Memory
                         </button>
                   </div>
+
                   {/* Filter Controls */}
                   <FilterControls
                         onFilterChange={handleFilterChange}
-                        initialFilters={Object.fromEntries(
-                              Object.entries(filters).map(([key, value]) => [
-                                    key,
-                                    value?.toString(),
-                              ])
-                        )}
+                        initialFilters={
+                              filters as Record<string, string | undefined>
+                        }
                   />
-                  {/* Timeline */}
+
+                  {/* Loading State / Error State / Timeline */}
                   {isLoading && memories.length === 0 ? (
-                        <div className="max-w-4xl mx-auto">
+                        // Initial loading skeleton
+                        <div className="max-w-3xl mx-auto">
+                              {" "}
+                              {/* Use Timeline's max-width */}
                               {[...Array(3)].map((_, index) => (
                                     <MemoryCardSkeleton key={index} />
                               ))}
                         </div>
                   ) : error ? (
-                        <p className="text-center text-red-600 mt-8">
+                        <p className="text-center text-red-600 mt-8 bg-red-100 p-4 rounded-md">
                               Error: {error}
                         </p>
+                  ) : !isLoading && memories.length === 0 ? (
+                        // No results state after loading/filtering
+                        <p className="text-center text-gray-600 mt-8 bg-yellow-100 p-4 rounded-md">
+                              No memories found
+                              {Object.keys(filters).filter((k) => k !== "limit")
+                                    .length > 0
+                                    ? " matching your filters"
+                                    : ""}
+                              . Try adding one!
+                        </p>
                   ) : (
+                        // Timeline and Load More
                         <>
                               <Timeline
                                     memories={sortedMemories}
-                                    onMemorySelect={handleSelectMemory} // Opens detail modal
-                                    onMemoryEdit={handleEditRequest} // Opens edit modal
-                                    isLoading={isLoading}
+                                    onMemorySelect={handleSelectMemory}
+                                    onMemoryEdit={handleEditRequest}
                               />
-                              {/* Load More Trigger */}
+                              {/* Load More Trigger / Indicator */}
                               <div
                                     ref={loadMoreRef}
-                                    className="h-10 flex justify-center items-center"
+                                    className="h-20 flex justify-center items-center mt-6"
                               >
-                                    {isLoadingMore && (
-                                          <div className="w-full max-w-4xl mx-auto">
-                                                <MemoryCardSkeleton />
+                                    {isLoadingMore ? (
+                                          <div className="w-full max-w-3xl mx-auto">
+                                                {" "}
+                                                <MemoryCardSkeleton />{" "}
                                           </div>
-                                    )}
-                                    {!isLoadingMore &&
-                                          !hasMore &&
-                                          memories.length > 0 && (
-                                                <p className="text-gray-500">
-                                                      End of memories.
-                                                </p>
-                                          )}
+                                    ) : !hasMore && memories.length > 0 ? (
+                                          <p className="text-gray-500">
+                                                End of timeline.
+                                          </p>
+                                    ) : null}
                               </div>
                         </>
                   )}
-                  {/* Detail Modal - Rendered Conditionally. Handles its own modal styling (including blur) */}
+
+                  {/* Detail Modal - Renders based on selectedMemory state */}
                   {selectedMemory && (
                         <MemoryDetailModal
                               memory={selectedMemory}
                               onClose={handleCloseDetailModal}
-                              onEditRequest={handleEditRequest} // Allows opening Edit modal from Detail view
+                              onEditRequest={handleEditRequest}
                         />
                   )}
-                  {/* Add/Edit Form Modal - Uses the generic Modal component */}
+
+                  {/* Add/Edit Form Modal - Uses the generic Modal */}
                   <Modal
                         isOpen={isAddEditModalOpen}
                         onClose={handleCloseAddEditModal}
                         title={editingMemory ? "Edit Memory" : "Add New Memory"}
-                        // useBlur={false} // Form modal doesn't need blur by default, but you could add useBlur={true}
+                        maxWidth="max-w-3xl" // Wider modal for form
+                        useBlur={false} // Use dark overlay for form modal
                   >
-                        {/* Conditionally render AddMemoryForm only when modal is open to ensure state resets correctly via key */}
+                        {/* Render form only when modal is open, use key to force reset */}
                         {isAddEditModalOpen && (
                               <AddMemoryForm
                                     key={
                                           editingMemory
                                                 ? editingMemory.id
                                                 : "add-new"
-                                    } // Force re-mount on mode switch
+                                    }
                                     onMemorySaved={handleMemorySaved}
                                     existingMemory={editingMemory}
-                                    onCancel={handleCloseAddEditModal} // Use modal's close handler
+                                    onCancel={handleCloseAddEditModal}
                               />
                         )}
                   </Modal>
