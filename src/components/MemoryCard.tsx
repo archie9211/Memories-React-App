@@ -91,6 +91,13 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                                                 className="w-full h-full object-cover opacity-80"
                                           />
                                     )}
+                                    {!primaryAsset?.thumbnail_key && (
+                                          <img
+                                                src="/video_placeholder.jpg"
+                                                alt="Video preview"
+                                                className="w-full h-full object-cover opacity-80"
+                                          />
+                                    )}
                               </div>
                         ) : (
                               <p className="text-gray-400 italic text-center my-4">
@@ -165,7 +172,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
 
       return (
             <div
-                  className="bg-cyan rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 relative group cursor-pointer flex flex-col h-full" // Added flex, h-full
+                  className=" rounded-lg shadow-md hover:shadow-xl transition-shadow duration-300 relative group cursor-pointer flex flex-col h-full" // Added flex, h-full
                   onClick={() => onCardClick(memory)}
             >
                   {/* Edit Button - More prominent */}
@@ -195,7 +202,9 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                               )}
                         </div>
                         {/* Content Preview Area */}
-                        <div className="mb-2">{renderContentPreview()}</div>
+                        <div className="mb-2 bg-cyan-50">
+                              {renderContentPreview()}
+                        </div>
                         {/* Caption (if applicable and exists) */}
                         {memory.caption &&
                               (memory.type === "image" ||

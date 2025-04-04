@@ -51,7 +51,7 @@ const Timeline: React.FC<TimelineProps> = ({
                               {/* Memory Card Container */}
                               {/* Sm screens: Margin-left to not overlap mobile dot/line */}
                               {/* Md screens and up: 50% width minus gap */}
-                              <div className="ml-8 sm:ml-0 sm:w-[calc(50%-2rem)]">
+                              <div className="bg-cyan-50 ml-8 sm:ml-0 sm:w-[calc(50%-2rem)]">
                                     {" "}
                                     {/* Increased gap to 2rem */}
                                     <MemoryCard
