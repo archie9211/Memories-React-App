@@ -23,37 +23,6 @@ app.use("/api/*", async (c, next) => {
       });
       // Apply CORS handling
       return handler(c, next);
-
-      // --- Manual CORS (Alternative if hono/cors doesn't suffice) ---
-      // // Handle OPTIONS Preflight
-      // if (c.req.method === 'OPTIONS') {
-      //     return new Response(null, {
-      //         status: 204,
-      //         headers: {
-      //             'Access-Control-Allow-Origin': c.env.CORS_ALLOW_ORIGIN || '*',
-      //             'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-      //             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      //             'Access-Control-Allow-Credentials': 'true',
-      //             'Access-Control-Max-Age': '86400',
-      //         },
-      //     });
-      // }
-      // // Call next middleware/handler
-      // await next();
-      // // Add CORS headers to the response AFTER the handler runs
-      // if (c.res) { // Check if response exists (might not on OPTIONS handled above)
-      //      // Clone to make headers mutable if not already
-      //     const responseHeaders = new Headers(c.res.headers);
-      //     responseHeaders.set('Access-Control-Allow-Origin', c.env.CORS_ALLOW_ORIGIN || '*');
-      //     responseHeaders.set('Access-Control-Allow-Credentials', 'true');
-      //     // Hono might handle other headers via configuration, but you can set explicitly if needed
-      //     // Create new response with modified headers
-      //     c.res = new Response(c.res.body, {
-      //          status: c.res.status,
-      //          statusText: c.res.statusText,
-      //          headers: responseHeaders
-      //      });
-      // }
 });
 
 /**
@@ -61,6 +30,7 @@ app.use("/api/*", async (c, next) => {
  */
 app.all("/api/*", async (c) => {
       const userEmail = c.req.header("cf-access-authenticated-user-email");
+      // const userEmail = "nagee";
 
       // Optional: Early exit if auth fails (though API worker should also check)
       if (!userEmail) {

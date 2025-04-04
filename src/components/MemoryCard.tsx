@@ -26,11 +26,13 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
       const primaryAsset: MemoryAsset | undefined = memory.assets?.[0];
 
       // Use thumbnail if available (for images), otherwise fallback to original key
-      const previewSrc = getAssetPath(
-            primaryAsset?.asset_type === "image"
-                  ? primaryAsset.thumbnail_key || primaryAsset.asset_key
-                  : primaryAsset?.asset_key
-      );
+      const previewSrc = primaryAsset
+            ? getAssetPath(
+                    primaryAsset.asset_type === "image"
+                          ? primaryAsset.thumbnail_key || primaryAsset.asset_key
+                          : primaryAsset.asset_key
+              )
+            : null;
 
       const renderContentPreview = () => {
             switch (memory.type) {
@@ -97,15 +99,13 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                         );
 
                   case "gallery":
-                        const galleryPreviewSrc = getAssetPath(
-                              primaryAsset?.thumbnail_key ||
-                                    primaryAsset?.asset_key
-                        ); // Use first item's thumb/key
                         return (
-                              <div className="aspect-w-16 aspect-h-9 my-2 rounded overflow-hidden bg-cyan-50  relative">
-                                    {galleryPreviewSrc ? (
+                              <div className="aspect-w-16 aspect-h-9 my-2 rounded overflow-hidden bg-gray-200 relative group">
+                                    {" "}
+                                    {/* Added group */}
+                                    {previewSrc ? (
                                           <img
-                                                src={galleryPreviewSrc}
+                                                src={previewSrc}
                                                 alt="Gallery preview"
                                                 loading="lazy"
                                                 decoding="async"
@@ -114,13 +114,14 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                                     ) : (
                                           <RectangleStackIcon className="w-16 h-16 text-gray-400 absolute inset-0 m-auto" />
                                     )}
-                                    {/* Overlay to indicate gallery */}
-                                    <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
-                                          <span className="text-white text-sm font-semibold bg-black bg-opacity-50 px-2 py-1 rounded">
+                                    {/* Overlay to indicate gallery - Always visible now */}
+                                    <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                                          <span className="text-white text-sm font-semibold bg-black bg-opacity-60 px-2 py-1 rounded">
                                                 Gallery (
                                                 {memory.assets?.length || 0})
                                           </span>
                                     </div>
+                                    {/* Icon in corner is still useful */}
                                     <RectangleStackIcon
                                           className="absolute top-2 left-2 w-5 h-5 text-white opacity-70 bg-black/30 rounded-sm p-0.5"
                                           title="Gallery"
