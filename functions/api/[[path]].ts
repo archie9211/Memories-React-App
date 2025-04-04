@@ -63,9 +63,9 @@ app.all("/api/*", async (c) => {
       const userEmail = c.req.header("cf-access-authenticated-user-email");
 
       // Optional: Early exit if auth fails (though API worker should also check)
-      // if (!userEmail) {
-      //    return c.json({ error: "Authentication required" }, 401);
-      // }
+      if (!userEmail) {
+            return c.json({ error: "Authentication required" }, 401);
+      }
 
       // 1. Construct target URL for the API worker
       const url = new URL(c.req.url);
@@ -94,7 +94,6 @@ app.all("/api/*", async (c) => {
                   userEmail || "anonymous?"
             }`
       );
-      console.log("NAGEEN", workerUrl);
 
       // 3. Forward the request to the API worker via Service Binding
       try {
