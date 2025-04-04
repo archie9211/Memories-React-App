@@ -115,7 +115,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                                           <RectangleStackIcon className="w-16 h-16 text-gray-400 absolute inset-0 m-auto" />
                                     )}
                                     {/* Overlay to indicate gallery - Always visible now */}
-                                    <div className="absolute inset-0 bg-black bg-opacity-30 flex items-center justify-center">
+                                    <div className="absolute inset-0 flex items-center justify-center">
                                           <span className="text-white text-sm font-semibold bg-black bg-opacity-60 px-2 py-1 rounded">
                                                 Gallery (
                                                 {memory.assets?.length || 0})
