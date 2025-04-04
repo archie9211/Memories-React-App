@@ -59,6 +59,8 @@ const AddMemoryForm: React.FC<AddMemoryFormProps> = ({
       const [content, setContent] = useState(existingMemory?.content || "");
       const [caption, setCaption] = useState(existingMemory?.caption || "");
       const [location, setLocation] = useState(existingMemory?.location || "");
+      const [isProcessingQueue, setIsProcessingQueue] = useState(false);
+
       const initialDate = existingMemory?.memory_date
             ? new Date(existingMemory.memory_date).toISOString().slice(0, 16)
             : new Date().toISOString().slice(0, 16);
@@ -154,77 +156,108 @@ const AddMemoryForm: React.FC<AddMemoryFormProps> = ({
       };
 
       // Function to trigger upload for pending files
-      const startUploads = useCallback(async () => {
-            const pendingUploads = uploadQueue.filter(
+      const processQueueSequentially = useCallback(async () => {
+            // Find the next pending upload
+            const nextUploadIndex = uploadQueue.findIndex(
                   (u) => u.status === "pending"
             );
-            if (pendingUploads.length === 0) return;
 
-            await Promise.all(
-                  pendingUploads.map(async (upload) => {
-                        setUploadQueue((prev) =>
-                              prev.map((u) =>
-                                    u.id === upload.id
-                                          ? { ...u, status: "uploading" }
-                                          : u
-                              )
-                        );
-                        try {
-                              const response = await uploadAsset(upload.file);
-                              const newAsset: AssetPayload = {
-                                    asset_key: response.key,
-                                    thumbnail_key: response.thumbnailKey,
-                                    asset_type: upload.file.type.startsWith(
-                                          "image/"
-                                    )
-                                          ? "image"
-                                          : "video",
-                              };
-                              setUploadedAssets((prev) => [...prev, newAsset]); // Add successful upload to assets list
-                              setUploadQueue((prev) =>
-                                    prev.map((u) =>
-                                          u.id === upload.id
-                                                ? {
-                                                        ...u,
-                                                        status: "success",
-                                                        key: response.key,
-                                                        thumbnailKey:
-                                                              response.thumbnailKey,
-                                                  }
-                                                : u
-                                    )
-                              );
-                        } catch (error: any) {
-                              console.error("Upload error:", error);
-                              setUploadQueue((prev) =>
-                                    prev.map((u) =>
-                                          u.id === upload.id
-                                                ? {
-                                                        ...u,
-                                                        status: "error",
-                                                        error:
-                                                              error.message ||
-                                                              "Upload failed",
-                                                  }
-                                                : u
-                                    )
-                              );
-                              toast.error(
-                                    `Failed to upload ${upload.file.name}: ${
-                                          error.message || "Unknown error"
-                                    }`
-                              );
-                        }
-                  })
-            );
-      }, [uploadQueue]); // Depends on uploadQueue
-
-      // Automatically start uploads when pending files exist
-      useEffect(() => {
-            if (uploadQueue.some((u) => u.status === "pending")) {
-                  startUploads();
+            // If no pending uploads or already processing, stop.
+            if (nextUploadIndex === -1 || isProcessingQueue) {
+                  if (nextUploadIndex === -1) {
+                        setIsProcessingQueue(false); // Ensure flag is reset if queue is empty
+                  }
+                  return;
             }
-      }, [uploadQueue, startUploads]);
+
+            setIsProcessingQueue(true); // Mark as processing
+            const upload = uploadQueue[nextUploadIndex];
+
+            // Update status to 'uploading' for UI feedback
+            setUploadQueue((prev) =>
+                  prev.map((u) =>
+                        u.id === upload.id ? { ...u, status: "uploading" } : u
+                  )
+            );
+
+            try {
+                  console.log(
+                        `Uploading file sequentially: ${upload.file.name}`
+                  ); // Log start
+                  const response = await uploadAsset(upload.file);
+                  const newAsset: AssetPayload = {
+                        asset_key: response.key,
+                        thumbnail_key: response.thumbnailKey,
+                        asset_type: upload.file.type.startsWith("image/")
+                              ? "image"
+                              : "video",
+                  };
+                  setUploadedAssets((prev) => [...prev, newAsset]);
+                  // Update status to 'success'
+                  setUploadQueue((prev) =>
+                        prev.map((u) =>
+                              u.id === upload.id
+                                    ? {
+                                            ...u,
+                                            status: "success",
+                                            key: response.key,
+                                            thumbnailKey: response.thumbnailKey,
+                                      }
+                                    : u
+                        )
+                  );
+            } catch (error: any) {
+                  console.error(
+                        `Sequential upload error for ${upload.file.name}:`,
+                        error
+                  );
+                  // Update status to 'error'
+                  setUploadQueue((prev) =>
+                        prev.map((u) =>
+                              u.id === upload.id
+                                    ? {
+                                            ...u,
+                                            status: "error",
+                                            error:
+                                                  error.message ||
+                                                  "Upload failed",
+                                      }
+                                    : u
+                        )
+                  );
+                  // Show specific toast for the failed file
+                  toast.error(
+                        `Failed to upload ${upload.file.name}: ${
+                              error.message || "Unknown error"
+                        }`
+                  );
+            } finally {
+                  setIsProcessingQueue(false); // Allow next item to be processed
+                  // Trigger processing the *next* item shortly after, allowing UI to update
+                  // setTimeout(() => processQueueSequentially(), 100); // Small delay might help UI responsiveness
+                  // Or trigger immediately if batching many small files:
+                  // processQueueSequentially(); // <-- Recursive call might be okay here, but ensure state updates first
+                  // Safer approach: useEffect dependency below handles this.
+            }
+      }, [uploadQueue, isProcessingQueue]); // Dependencies
+
+      // Trigger processing whenever the queue changes and we're not already processing
+      useEffect(() => {
+            if (
+                  !isProcessingQueue &&
+                  uploadQueue.some((u) => u.status === "pending")
+            ) {
+                  processQueueSequentially();
+            }
+            // Log queue status changes
+            console.log(
+                  "Upload Queue Status:",
+                  uploadQueue.map((u) => ({
+                        name: u.file.name,
+                        status: u.status,
+                  }))
+            );
+      }, [uploadQueue, isProcessingQueue, processQueueSequentially]);
 
       const removeUploadItem = (idToRemove: string) => {
             setUploadQueue((prev) => prev.filter((u) => u.id !== idToRemove));
@@ -239,8 +272,21 @@ const AddMemoryForm: React.FC<AddMemoryFormProps> = ({
 
       // --- Form Submission ---
       const handleSubmit = async (e: React.FormEvent) => {
+            if (
+                  isProcessingQueue ||
+                  uploadQueue.some(
+                        (u) =>
+                              u.status === "pending" || u.status === "uploading"
+                  )
+            ) {
+                  toast.error(
+                        "Please wait for all uploads to complete or remove failed items."
+                  );
+                  return;
+            }
             e.preventDefault();
             if (isUploading) {
+                  // Can keep this or rely on the check above
                   toast.error("Please wait for uploads to complete.");
                   return;
             }
