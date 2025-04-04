@@ -62,7 +62,16 @@ export interface FetchAllMediaResponse {
       // Add pagination info here if implemented (e.g., nextOffset, total)
 }
 
-const API_BASE = "/api";
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
+
+if (!API_BASE_URL) {
+      console.error(
+            "FATAL ERROR: VITE_API_BASE_URL environment variable is not set!"
+      );
+      // You might want to throw an error or display a message to the user
+}
+const API_PREFIX = "/api"; // The path prefix used in the worker
+const FULL_API_BASE = `${API_BASE_URL}${API_PREFIX}`;
 
 // --- Helper for Error Handling (Unchanged) ---
 const handleApiError = async (
@@ -101,7 +110,9 @@ export const fetchMemories = async (
             params.append("cursorId", filters.cursorId);
       }
 
-      const response = await fetch(`${API_BASE}/memories?${params.toString()}`);
+      const response = await fetch(
+            `${FULL_API_BASE}/memories?${params.toString()}`
+      );
       if (!response.ok)
             await handleApiError(response, "Failed to fetch memories");
       return response.json();
@@ -118,7 +129,7 @@ export const uploadAsset = async (file: File): Promise<UploadAssetResponse> => {
       const formData = new FormData();
       formData.append("file", file);
 
-      const response = await fetch(`${API_BASE}/assets`, {
+      const response = await fetch(`${FULL_API_BASE}/assets`, {
             method: "POST",
             body: formData,
       });
@@ -138,7 +149,7 @@ export const getAssetPath = (
 ): string | null => {
       if (!assetKey) return null;
       const encodedKey = encodeURIComponent(assetKey);
-      return `${API_BASE}/assets/${encodedKey}`;
+      return `${FULL_API_BASE}/assets/${encodedKey}`;
 };
 
 // --- Payload Types for Add/Update ---
@@ -166,7 +177,7 @@ export type UpdateMemoryPayload = Omit<Partial<AddMemoryPayload>, "">;
 
 // Add Memory (Adjusted payload)
 export const addMemory = async (payload: AddMemoryPayload): Promise<Memory> => {
-      const response = await fetch(`${API_BASE}/memories`, {
+      const response = await fetch(`${FULL_API_BASE}/memories`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -183,7 +194,7 @@ export const updateMemory = async (
       payload: UpdateMemoryPayload
 ): Promise<Memory> => {
       // Note: This PATCH currently only updates metadata in the backend implementation.
-      const response = await fetch(`${API_BASE}/memories/${id}`, {
+      const response = await fetch(`${FULL_API_BASE}/memories/${id}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(payload),
@@ -198,7 +209,7 @@ export const updateMemory = async (
 // --- New function for Global Media Gallery ---
 export const fetchAllMedia = async (): Promise<FetchAllMediaResponse> => {
       // Add pagination parameters here if implemented (e.g., limit, offset/cursor)
-      const response = await fetch(`${API_BASE}/all-media`); // Add params if needed
+      const response = await fetch(`${FULL_API_BASE}/all-media`); // Add params if needed
       if (!response.ok)
             await handleApiError(response, "Failed to fetch media gallery");
       return response.json(); // Expects { media: GlobalMediaItem[] }
