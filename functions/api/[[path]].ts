@@ -1,134 +1,133 @@
-// functions/api/[[path]].ts (in your Pages project)
+import { Hono } from "hono";
+import { cors } from "hono/cors"; // Use Hono's built-in CORS middleware
+import type { PagesFunction, Fetcher } from "@cloudflare/workers-types";
+import { Bindings } from "hono/types";
 
-import {
-      PagesFunction,
-      Fetcher,
-      Response as CfResponse,
-} from "@cloudflare/workers-types";
-
-// Define the bindings expected in the Pages environment for this function
 interface Env {
       // Service binding to the backend API worker
       API_WORKER: Fetcher;
+      // Optional: Environment variable for allowed origins
+      CORS_ALLOW_ORIGIN?: string;
 }
 
-export const onRequest: PagesFunction<Env> = async (
-      context
-): Promise<CfResponse> => {
-      const { request, env, params } = context;
-      const userEmail = request.headers.get(
-            "cf-access-authenticated-user-email"
-      );
+const app = new Hono<{ Bindings: Env }>();
 
-      // 1. Construct the URL for the backend API worker
-      const pathSegments = params.path as string[];
-      const workerPath = "/" + pathSegments.join("/"); // Reconstruct path (e.g., /api/memories)
-      const originalUrl = new URL(request.url); // Get the original URL to preserve search params
-      // Use a dummy base, the path and search are what matter for the worker's router
-      const workerUrl = `http://image-processor-worker.archie9211.workers.dev${workerPath}${originalUrl.search}`;
+app.use("/api/*", async (c, next) => {
+      const handler = cors({
+            // Use environment variable or fallback to '*' (Restrict in production!)
+            origin: c.env.CORS_ALLOW_ORIGIN || "*",
+            allowMethods: ["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+            allowHeaders: ["Content-Type", "Authorization"], // Add others if needed by frontend
+            credentials: true,
+            maxAge: 86400, // 1 day cache for preflight
+      });
+      // Apply CORS handling
+      return handler(c, next);
 
-      const workerHeaders = new Headers(
-            Object.fromEntries(request.headers.entries())
-      ); // Convert Cloudflare Headers to plain object
-      // Clean up headers not needed/wanted by the backend
+      // --- Manual CORS (Alternative if hono/cors doesn't suffice) ---
+      // // Handle OPTIONS Preflight
+      // if (c.req.method === 'OPTIONS') {
+      //     return new Response(null, {
+      //         status: 204,
+      //         headers: {
+      //             'Access-Control-Allow-Origin': c.env.CORS_ALLOW_ORIGIN || '*',
+      //             'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
+      //             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      //             'Access-Control-Allow-Credentials': 'true',
+      //             'Access-Control-Max-Age': '86400',
+      //         },
+      //     });
+      // }
+      // // Call next middleware/handler
+      // await next();
+      // // Add CORS headers to the response AFTER the handler runs
+      // if (c.res) { // Check if response exists (might not on OPTIONS handled above)
+      //      // Clone to make headers mutable if not already
+      //     const responseHeaders = new Headers(c.res.headers);
+      //     responseHeaders.set('Access-Control-Allow-Origin', c.env.CORS_ALLOW_ORIGIN || '*');
+      //     responseHeaders.set('Access-Control-Allow-Credentials', 'true');
+      //     // Hono might handle other headers via configuration, but you can set explicitly if needed
+      //     // Create new response with modified headers
+      //     c.res = new Response(c.res.body, {
+      //          status: c.res.status,
+      //          statusText: c.res.statusText,
+      //          headers: responseHeaders
+      //      });
+      // }
+});
+
+/**
+ * Catch-all Proxy Handler for /api/* routes
+ */
+app.all("/api/*", async (c) => {
+      const userEmail = c.req.header("cf-access-authenticated-user-email");
+
+      // Optional: Early exit if auth fails (though API worker should also check)
+      // if (!userEmail) {
+      //    return c.json({ error: "Authentication required" }, 401);
+      // }
+
+      // 1. Construct target URL for the API worker
+      const url = new URL(c.req.url);
+      // Path will be like '/api/memories', '/api/assets/key', etc.
+      const workerPath = url.pathname;
+      const workerUrl = `https://image-processor-worker.archie9211.workers.dev${workerPath}${url.search}`; // Dummy base
+
+      // 2. Prepare Headers for the backend worker request
+      const workerHeaders = new Headers(c.req.raw.headers); // Start with original headers
+      // Clean sensitive/unnecessary headers
       workerHeaders.delete("cookie");
       workerHeaders.delete("cf-connecting-ip");
       workerHeaders.delete("cf-ipcountry");
       workerHeaders.delete("cf-visitor");
       workerHeaders.delete("x-forwarded-for");
       workerHeaders.delete("x-real-ip");
-      // Remove the Access header itself
       workerHeaders.delete("cf-access-authenticated-user-email");
-      workerHeaders.delete("cf-access-jwt-assertion"); // Remove JWT if present
-      // Add the custom header with the authenticated user's email
+      workerHeaders.delete("cf-access-jwt-assertion");
+      // Add the custom auth header
       if (userEmail) {
             workerHeaders.set("X-Authenticated-User-Email", userEmail);
       }
 
-      // 5. Make the request using the Service Binding
+      console.log(
+            `Pages Proxy (Hono): Forwarding ${c.req.method} ${workerPath} for ${
+                  userEmail || "anonymous?"
+            }`
+      );
+      console.log("NAGEEN", workerUrl);
+
+      // 3. Forward the request to the API worker via Service Binding
       try {
-            const response = await env.API_WORKER.fetch(workerUrl, {
-                  // Pass URL string
-                  method: request.method,
-                  headers: workerHeaders, // Pass prepared headers
-                  body: request.body, // Forward body
-                  redirect: "manual", // Required for service bindings
+            const workerResponse = await c.env.API_WORKER.fetch(workerUrl, {
+                  method: c.req.method,
+                  headers: workerHeaders,
+                  body: c.req.raw.body ? await c.req.raw.arrayBuffer() : null, // Convert body to ArrayBuffer if present
+                  redirect: "manual",
             });
 
-            // 6. Return the backend worker's response directly
-            // Important: Create a new Response to make headers mutable for CORS
-            const newResponse = new Response(response.body, {
-                  ...response,
-                  headers: new Headers(
-                        Object.fromEntries(response.headers.entries())
-                  ),
-            });
-
-            // 7. Add CORS headers for the BROWSER (responding from Pages origin)
-            // Adjust origin as needed, could read from an env var set for Pages
-            newResponse.headers.set("Access-Control-Allow-Origin", "*"); // Or your specific Pages domain
-            newResponse.headers.set(
-                  "Access-Control-Allow-Methods",
-                  "GET, POST, PATCH, DELETE, OPTIONS"
+            console.log(
+                  `Pages Proxy (Hono): Received status ${workerResponse.status} from API Worker.`
             );
-            newResponse.headers.set(
-                  "Access-Control-Allow-Headers",
-                  "Content-Type, Authorization"
-            ); // Match what frontend sends/backend expects (via proxy)
-            newResponse.headers.set("Access-Control-Allow-Credentials", "true");
-            newResponse.headers.set("Access-Control-Max-Age", "86400");
 
-            const responseHeaders = new Headers(newResponse.headers); // Create mutable headers from worker response
-
-            // 5. Add CORS headers
-            responseHeaders.set("Access-Control-Allow-Origin", "*"); // Adjust as needed
-            responseHeaders.set(
-                  "Access-Control-Allow-Methods",
-                  "GET, POST, PATCH, DELETE, OPTIONS"
-            );
-            responseHeaders.set(
-                  "Access-Control-Allow-Headers",
-                  "Content-Type, Authorization"
-            );
-            responseHeaders.set("Access-Control-Allow-Credentials", "true");
-            responseHeaders.set("Access-Control-Max-Age", "86400");
-            // Handle OPTIONS preflight requests directly here
-            if (request.method === "OPTIONS") {
-                  // Use the global Response constructor. Assert the type for the return.
-                  return new Response(null, {
-                        headers: responseHeaders,
-                        status: 204,
-                  }) as unknown as CfResponse; // <-- Type Assertion
-            }
-
-            // 7. Return the final response with original body/status but modified headers
-            // Use the global Response constructor. Assert the type for the return.
-            return new Response(newResponse.body, {
-                  status: newResponse.status,
-                  statusText: newResponse.statusText,
-                  headers: responseHeaders, // Use the modified headers
-            }) as unknown as CfResponse; // <-- Type Assertion
+            // 4. Return the response from the worker
+            // Hono automatically handles setting the body and status.
+            // CORS headers are added by the middleware applied earlier.
+            return workerResponse as unknown as Response; // Cast to standard Response type
       } catch (error: any) {
-            console.error("Pages Proxy: Error fetching API worker:", error);
-            // Return a compatible Response for errors using assertion
-            return new Response("Error proxying request to backend API.", {
-                  status: 502,
-                  headers: { "Access-Control-Allow-Origin": "*" }, // Add CORS to errors too
-            }) as unknown as CfResponse; // <-- Type Assertion
+            console.error(
+                  "Pages Proxy (Hono): Error fetching API worker:",
+                  error
+            );
+            return c.text("Error proxying request to backend API.", 502); // 502 Bad Gateway
       }
-};
+});
 
-// Optional: Define onRequestOptions for preflight handling if needed,
-// but the main handler above now handles OPTIONS.
-// export const onRequestOptions: PagesFunction = async () => {
-//     return new Response(null, {
-//         status: 204,
-//         headers: {
-//             'Access-Control-Allow-Origin': '*', // Or specific domain
-//             'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-//             'Access-Control-Allow-Methods': 'GET, POST, PATCH, DELETE, OPTIONS',
-//             'Access-Control-Max-Age': '86400',
-//             'Access-Control-Allow-Credentials': 'true',
-//         },
-//     });
-// };
+// --- Export the Pages Function Handler ---
+// This connects Hono to the Cloudflare Pages Function runtime
+export const onRequest: PagesFunction<Bindings> = async (context) => {
+      return app.fetch(
+            context.request as unknown as Request,
+            context.env,
+            context
+      ) as unknown as import("@cloudflare/workers-types").Response;
+};
