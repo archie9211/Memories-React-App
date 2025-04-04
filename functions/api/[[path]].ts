@@ -1,8 +1,10 @@
 // functions/api/[[path]].ts (in your Pages project)
 
-import { PagesFunction, Fetcher } from "@cloudflare/workers-types";
-
-import type { Response as CfResponse } from "@cloudflare/workers-types";
+import {
+      PagesFunction,
+      Fetcher,
+      Response as CfResponse,
+} from "@cloudflare/workers-types";
 
 // Define the bindings expected in the Pages environment for this function
 interface Env {
@@ -76,17 +78,43 @@ export const onRequest: PagesFunction<Env> = async (
             newResponse.headers.set("Access-Control-Allow-Credentials", "true");
             newResponse.headers.set("Access-Control-Max-Age", "86400");
 
+            const responseHeaders = new Headers(newResponse.headers); // Create mutable headers from worker response
+
+            // 5. Add CORS headers
+            responseHeaders.set("Access-Control-Allow-Origin", "*"); // Adjust as needed
+            responseHeaders.set(
+                  "Access-Control-Allow-Methods",
+                  "GET, POST, PATCH, DELETE, OPTIONS"
+            );
+            responseHeaders.set(
+                  "Access-Control-Allow-Headers",
+                  "Content-Type, Authorization"
+            );
+            responseHeaders.set("Access-Control-Allow-Credentials", "true");
+            responseHeaders.set("Access-Control-Max-Age", "86400");
             // Handle OPTIONS preflight requests directly here
             if (request.method === "OPTIONS") {
-                  return new Response(null, { headers: newResponse.headers });
+                  // Use the global Response constructor. Assert the type for the return.
+                  return new Response(null, {
+                        headers: responseHeaders,
+                        status: 204,
+                  }) as unknown as CfResponse; // <-- Type Assertion
             }
 
-            return newResponse;
+            // 7. Return the final response with original body/status but modified headers
+            // Use the global Response constructor. Assert the type for the return.
+            return new Response(newResponse.body, {
+                  status: newResponse.status,
+                  statusText: newResponse.statusText,
+                  headers: responseHeaders, // Use the modified headers
+            }) as unknown as CfResponse; // <-- Type Assertion
       } catch (error: any) {
             console.error("Pages Proxy: Error fetching API worker:", error);
+            // Return a compatible Response for errors using assertion
             return new Response("Error proxying request to backend API.", {
                   status: 502,
-            }); // Bad Gateway
+                  headers: { "Access-Control-Allow-Origin": "*" }, // Add CORS to errors too
+            }) as unknown as CfResponse; // <-- Type Assertion
       }
 };
 
