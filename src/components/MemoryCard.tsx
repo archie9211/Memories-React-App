@@ -47,7 +47,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                         );
                   case "image":
                         return previewSrc ? (
-                              <div className="aspect-w-16 aspect-h-9 my-2 rounded overflow-hidden bg-cyan relative">
+                              <div className="aspect-w-16 aspect-h-9 rounded overflow-hidden bg-cyan relative">
                                     {" "}
                                     {/* Added aspect ratio */}
                                     <img
@@ -55,7 +55,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                                           alt={memory.caption || "Memory image"}
                                           loading="lazy"
                                           decoding="async"
-                                          className="w-full h-full object-cover"
+                                          className="w-full max-h-[400px] object-contain rounded bg-cyan-50"
                                     />
                                     <PhotoIcon
                                           className="absolute top-2 left-2 w-5 h-5 text-white opacity-70 bg-cyan rounded-sm p-0.5"
@@ -70,7 +70,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                   case "video":
                         return previewSrc ? (
                               // Show placeholder/thumbnail for video, don't autoplay/load full video in card
-                              <div className="aspect-w-16 aspect-h-9 my-2 rounded overflow-hidden bg-cyan-50 relative">
+                              <div className="aspect-w-16 aspect-h-9 rounded overflow-hidden bg-cyan-50 relative">
                                     <VideoCameraIcon
                                           className="absolute top-2 left-2 w-5 h-5 text-white opacity-70 bg-cyan-50 rounded-sm p-0.5"
                                           title="Video"
@@ -88,14 +88,14 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                                                       ) || undefined
                                                 }
                                                 alt="Video preview"
-                                                className="w-full h-full object-cover opacity-80"
+                                                className="w-full max-h-[400px] object-contain rounded bg-cyan-50"
                                           />
                                     )}
                                     {!primaryAsset?.thumbnail_key && (
                                           <img
                                                 src="/video_placeholder.jpg"
                                                 alt="Video preview"
-                                                className="w-full h-full object-cover opacity-80"
+                                                className="w-full max-h-[400px] object-contain rounded bg-cyan-50"
                                           />
                                     )}
                               </div>
@@ -116,7 +116,7 @@ const MemoryCard: React.FC<MemoryCardProps> = ({
                                                 alt="Gallery preview"
                                                 loading="lazy"
                                                 decoding="async"
-                                                className="w-full h-full object-cover"
+                                                className="w-full max-h-[400px] object-contain rounded bg-cyan-50"
                                           />
                                     ) : (
                                           <RectangleStackIcon className="w-16 h-16 text-gray-400 absolute inset-0 m-auto" />
