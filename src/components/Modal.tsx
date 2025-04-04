@@ -1,6 +1,5 @@
 // src/components/Modal.tsx
-import React from "react";
-import { useScrollLock } from "../hooks/useScrollLock"; // Import the hook
+import React, { useEffect } from "react";
 
 interface ModalProps {
       isOpen: boolean;
@@ -19,10 +18,30 @@ const Modal: React.FC<ModalProps> = ({
       useBlur = true,
       maxWidth = "max-w-2xl",
 }) => {
-      // Use the scroll lock hook when the modal is open
-      // Note: This replaces the useEffect for body overflow style
-      // eslint-disable-next-line react-hooks/rules-of-hooks
-      if (isOpen) useScrollLock();
+      // Move scroll lock logic here
+      useEffect(() => {
+            if (isOpen) {
+                  // Get the original body overflow and padding
+                  const originalStyle = window.getComputedStyle(document.body);
+                  const originalOverflow = originalStyle.overflow;
+                  const originalPaddingRight = originalStyle.paddingRight;
+
+                  // Get width of scrollbar
+                  const scrollBarWidth =
+                        window.innerWidth -
+                        document.documentElement.clientWidth;
+
+                  // Prevent scroll
+                  document.body.style.overflow = "hidden";
+                  document.body.style.paddingRight = `${scrollBarWidth}px`;
+
+                  // Cleanup function
+                  return () => {
+                        document.body.style.overflow = originalOverflow;
+                        document.body.style.paddingRight = originalPaddingRight;
+                  };
+            }
+      }, [isOpen]); // Depend on isOpen to properly handle cleanup
 
       if (!isOpen) return null;
 
@@ -41,7 +60,6 @@ const Modal: React.FC<ModalProps> = ({
             >
                   {/* Using <dialog> causes issues with positioning/styling in some cases, revert to div */}
                   <div
-                        // open={isOpen} // Not needed for div
                         className={`bg-white rounded-lg shadow-xl w-full ${maxWidth} max-h-[90vh] flex flex-col overflow-hidden transform transition-all duration-300 ease-in-out scale-95 opacity-0 animate-modal-fade-in m-0`}
                         onClick={(e) => e.stopPropagation()}
                         role="document" // More appropriate role for the content container
