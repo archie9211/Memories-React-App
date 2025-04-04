@@ -29,10 +29,6 @@ type Bindings = {
       ASSETS_BUCKET: R2Bucket;
 };
 
-interface AccessJwtPayload {
-      email: string;
-}
-
 // Asset structure as stored/retrieved
 interface MemoryAsset {
       id: string;
@@ -97,14 +93,14 @@ app.post("/api/assets", async (c) => {
             if (!file || !(file instanceof File)) {
                   return c.json({ error: "File data invalid." }, 400);
             }
-
-            const MAX_SIZE_MB = 100;
-            if (file.size > MAX_SIZE_MB * 1024 * 1024) {
-                  return c.json(
-                        { error: `File exceeds ${MAX_SIZE_MB} MB limit.` },
-                        413
-                  );
-            }
+            // TODO:  skip file size limit for now, uncoment below if needed
+            // const MAX_SIZE_MB = 100;
+            // if (file.size > MAX_SIZE_MB * 1024 * 1024) {
+            //       return c.json(
+            //             { error: `File exceeds ${MAX_SIZE_MB} MB limit.` },
+            //             413
+            //       );
+            // }
 
             // Check if it's a type Jimp can likely process (excluding SVG, check GIF support if needed)
             const processableImageTypes = [
@@ -194,14 +190,35 @@ app.post("/api/assets", async (c) => {
             // 3. Return keys
             return c.json({ key: uniqueKey, thumbnailKey: thumbnailKey });
       } catch (e: any) {
-            console.error("Error in /api/assets handler:", e);
-            return c.json(
-                  {
-                        error: "Failed to process asset",
-                        details: e.message || "Unknown error",
-                  },
-                  500
-            );
+            console.error("Error in /api/assets handler:", e); // This might show up locally
+            let detail = e.message || "Unknown error";
+            let status = 500;
+
+            // Try to guess the error type based on message
+            if (
+                  e.message?.includes("CPU") ||
+                  e.message?.includes("time limit")
+            ) {
+                  detail =
+                        "Processing timed out (CPU limit likely exceeded). Try fewer files.";
+                  status = 429; // Too Many Requests (or 503 Service Unavailable)
+            } else if (e.message?.includes("memory")) {
+                  detail = "Processing failed (Memory limit likely exceeded).";
+                  status = 507; // Insufficient Storage (closest conceptually)
+            } else if (e.message?.includes("Jimp")) {
+                  // Or check for specific Jimp error types if known
+                  detail = `Image processing error: ${e.message}`;
+                  status = 400; // Bad Request (likely bad image data)
+            } else if (e instanceof Error && e.name === "R2Error") {
+                  // Hypothetical R2 Error check
+                  detail = `Storage error: ${e.message}`;
+                  status = 503;
+            }
+
+            return c.json({
+                  error: "Failed to process asset",
+                  details: detail,
+            });
       }
 });
 
@@ -867,15 +884,6 @@ app.get("/api/all-media", async (c) => {
                   500
             );
       }
-});
-
-// GET /api/auth/me (Unchanged)
-app.get("/api/auth/me", async (c) => {
-      const userEmail = getUser(c);
-      if (!userEmail) {
-            return c.json({ authenticated: false }, 401);
-      }
-      return c.json({ authenticated: true, email: userEmail });
 });
 
 // --- Catch-all & Export ---
