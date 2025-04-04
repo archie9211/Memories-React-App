@@ -1,11 +1,8 @@
 // functions/api/[[path]].ts (in your Pages project)
 
-import {
-      PagesFunction,
-      Fetcher,
-      Response,
-      CfProperties,
-} from "@cloudflare/workers-types";
+import { PagesFunction, Fetcher } from "@cloudflare/workers-types";
+
+import type { Response as CfResponse } from "@cloudflare/workers-types";
 
 // Define the bindings expected in the Pages environment for this function
 interface Env {
@@ -13,7 +10,9 @@ interface Env {
       API_WORKER: Fetcher;
 }
 
-export const onRequest: PagesFunction<Env> = async (context) => {
+export const onRequest: PagesFunction<Env> = async (
+      context
+): Promise<CfResponse> => {
       const { request, env, params } = context;
       const userEmail = request.headers.get(
             "cf-access-authenticated-user-email"
